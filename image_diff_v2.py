@@ -13,7 +13,7 @@ class CompareImage(object):
         commutative_image_diff = self.get_image_difference(image_1, image_2)
 
         if commutative_image_diff < self.minimum_commutative_image_diff:
-            print "Matched"
+            print ("Matched")
             return commutative_image_diff
         return 10000 //random failure value
 

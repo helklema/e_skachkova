@@ -5,8 +5,8 @@
 from skimage.measure import compare_ssim
 import argparse
 import imutils
-import cv2
 import numpy as np
+import cv2
 from matplotlib import pyplot as plt
 
 # construct the argument parse and parse the arguments
@@ -20,33 +20,6 @@ args = vars(ap.parse_args())
 # load the two input images
 imageA = cv2.imread(args["first"])
 imageB = cv2.imread(args["second"])
-
-imageA2 = imageA.copy()
-template = imageB.copy()
-w, h = template.shape[::-1]
-
-# All the 6 methods for comparison in a list
-methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR',
-		   'cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
-for meth in methods:
-	img = imageA2.copy()
-	method = eval(meth)
-	# Apply template Matching
-	res = cv2.matchTemplate(img,template,method)
-	min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-	# If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
-	if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-		top_left = min_loc
-	else:
-		top_left = max_loc
-	bottom_right = (top_left[0] + w, top_left[1] + h)
-	cv2.rectangle(img,top_left, bottom_right, 255, 2)
-	plt.subplot(121),plt.imshow(res,cmap = 'gray')
-	plt.title('Matching Result'), plt.xticks([]), plt.yticks([])
-	plt.subplot(122),plt.imshow(img,cmap = 'gray')
-	plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
-	plt.suptitle(meth)
-	plt.show()
 
 # convert the images to grayscale
 grayA = cv2.cvtColor(imageA, cv2.COLOR_BGR2GRAY)
@@ -66,8 +39,6 @@ cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
 	cv2.CHAIN_APPROX_SIMPLE)
 cnts = cnts[0] if imutils.is_cv2() else cnts[1]
 
-
-
 # loop over the contours
 for c in cnts:
 	# compute the bounding box of the contour and then draw the
@@ -77,9 +48,41 @@ for c in cnts:
 	cv2.rectangle(imageA, (x, y), (x + w, y + h), (0, 0, 255), 2)
 	cv2.rectangle(imageB, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
+# Initiate SIFT detector
+sift = cv2.SIFT()
+
+# find the keypoints and descriptors with SIFT
+kp1, des1 = sift.detectAndCompute(imageA,None)
+kp2, des2 = sift.detectAndCompute(imageB,None)
+
+# FLANN parameters
+FLANN_INDEX_KDTREE = 0
+index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+search_params = dict(checks=50)   # or pass empty dictionary
+
+flann = cv2.FlannBasedMatcher(index_params,search_params)
+
+matches = flann.knnMatch(des1,des2,k=2)
+
+# Need to draw only good matches, so create a mask
+matchesMask = [[0,0] for i in xrange(len(matches))]
+
+# ratio test as per Lowe's paper
+for i,(m,n) in enumerate(matches):
+    if m.distance < 0.7*n.distance:
+        matchesMask[i]=[1,0]
+
+draw_params = dict(matchColor = (0,255,0),
+                   singlePointColor = (255,0,0),
+                   matchesMask = matchesMask,
+                   flags = 0)
+
+img3 = cv2.drawMatchesKnn(img1,kp1,img2,kp2,matches,None,**draw_params)
+
 # show the output images
 cv2.imshow("Original", imageA)
 cv2.imshow("Modified", imageB)
 cv2.imshow("Diff", diff)
 cv2.imshow("Thresh", thresh)
+plt.imshow("Method SIFT",img3,),plt.show()
 cv2.waitKey(0)

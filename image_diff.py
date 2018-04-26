@@ -6,6 +6,8 @@ from skimage.measure import compare_ssim
 import argparse
 import imutils
 import cv2
+import numpy as np
+from matplotlib import pyplot as plt
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -36,6 +38,7 @@ thresh = cv2.threshold(diff, 0, 255,
 cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
 	cv2.CHAIN_APPROX_SIMPLE)
 cnts = cnts[0] if imutils.is_cv2() else cnts[1]
+
 
 # loop over the contours
 for c in cnts:
